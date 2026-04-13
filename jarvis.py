@@ -10,7 +10,11 @@ import math
 import urllib.request
 import urllib.parse
 import webbrowser
-
+#Nuevas Librerias
+import pyttsx3
+import io
+from pydub import AudioSegment
+from pydub.playback import play
 class Jarvis:
     def __init__(self):
         self.root = tk.Tk()
@@ -69,7 +73,39 @@ class Jarvis:
         self.chat.tag_config("sep",    foreground="#1a3a6a")
 
         threading.Thread(target=self.presentarse, daemon=True).start()
+        self.init_voice_engine()
         self.root.mainloop()
+    #voz nueva
+    def init_voice_engine(self):
+        """Inicializa el motor de voz con la mejor voz disponible."""
+        self.engine = pyttsx3.init()
+        self.engine.setProperty('rate', 175)
+        self.engine.setProperty('volume', 1.0)
+
+        voices = self.engine.getProperty('voices')
+        for voice in voices:
+            if 'english' in voice.name.lower():
+                if 'uk' in voice.id.lower() or 'british' in voice.name.lower():
+                    self.engine.setProperty('voice', voice.id)
+                    print(f"Usando voz: {voice.name}")
+                    break
+        else:
+            for voice in voices:
+                if 'english' in voice.name.lower():
+                    self.engine.setProperty('voice', voice.id)
+                    print(f"Usando voz (fallback): {voice.name}")
+                    break
+
+def apply_jarvis_effect(self, audio_segment):
+    """Aplica efectos para sonar como J.A.R.V.I.S."""
+    lowered = audio_segment._spawn(audio_segment.raw_data, overrides={
+        "frame_rate": int(audio_segment.frame_rate * 0.87)
+    }).set_frame_rate(audio_segment.frame_rate)
+
+    reverb = lowered.reverse().apply_gain(-8).reverse()
+    return reverb
+        
+        
 
     def presentarse(self):
         now = datetime.datetime.now()
@@ -171,13 +207,29 @@ class Jarvis:
         self.chat.config(state='disabled')
 
     def speak(self, text):
-        def t():
+        """Genera y reproduce la voz con efectos de J.A.R.V.I.S."""
+    def t():
+        temp_file = "temp_jarvis.wav"
+        try:
+            self.engine.save_to_file(text, temp_file)
+            self.engine.runAndWait()
+
+            sound = AudioSegment.from_wav(temp_file)
+            jarvis_sound = self.apply_jarvis_effect(sound)
+            play(jarvis_sound)
+
+        except Exception as e:
+            print(f"Error con efectos de voz: {e}")
             try:
-                subprocess.run(["espeak-ng", "-v", "es-la", "-s", "145", "-p", "48",
-                                text[:200]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                self.engine.say(text)
+                self.engine.runAndWait()
             except:
                 pass
-        threading.Thread(target=t, daemon=True).start()
+        finally:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+
+    threading.Thread(target=t, daemon=True).start()
 
     
     def fetch_url(self, url):
@@ -497,6 +549,10 @@ class Jarvis:
         self.msg("Usted", comando)
         self.entry.delete(0, tk.END)
         threading.Thread(target=self.procesar, args=(comando,), daemon=True).start()
+
+    def on_closing(self):
+        if messagebox.askokcancel("Cerrar JARVIS", "¿Desea cerrar JARVIS?"):
+            self.root.destroy()
 
     def on_closing(self):
         if messagebox.askokcancel("Cerrar JARVIS", "Desea cerrar JARVIS?"):
